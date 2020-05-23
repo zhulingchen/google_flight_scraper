@@ -85,9 +85,13 @@ def date_chooser(depart_date, return_date=None):
 
 
 def search_more():
-    more_results = browser.find_element_by_xpath("//a[@class='gws-flights-results__dominated-link']")
-    more_results.click()
-    time.sleep(15)
+    try:
+        more_results = browser.find_element_by_xpath("//a[@class='gws-flights-results__dominated-link']")
+        more_results.click()
+        time.sleep(15)
+        return True
+    except Exception as e:
+        return False
 
 
 def compile(save_filename=None):
@@ -172,7 +176,10 @@ if __name__ == '__main__':
         depart_airport_chooser(item.depart_airport)
         arrival_airport_chooser(item.arrival_airport)
         date_chooser(depart_date=item.depart_date, return_date=item.return_date)
-        search_more()
+        is_success = search_more()
+        if not is_success:
+            print('Searching failed')
+            continue
 
         # compile and save results
         save_filename = './result_{:s}-{:s}_{:s}'.format(item.depart_airport, item.arrival_airport, item.depart_date)
@@ -187,4 +194,3 @@ if __name__ == '__main__':
 
     # quit the browser
     browser.quit()
-
