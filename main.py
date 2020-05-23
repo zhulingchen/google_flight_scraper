@@ -5,6 +5,8 @@ Author: Lingchen Zhu
 """
 
 import os
+import re
+import argparse
 import time
 from datetime import datetime
 from selenium import webdriver
@@ -85,32 +87,43 @@ def search():
 
 
 def compile(save_filename=None):
-    df = pd.DataFrame()
     itinerary = browser.find_elements_by_xpath("//div[contains(@class, 'gws-flights-results__itinerary-card-summary')]")
+    # collect itinerary data
+    data = [[None] * 10 for _ in range(len(itinerary))]
     for i, itin in enumerate(itinerary):
         itin_info = itin.text.split('\n')
-        if len(itin_info) == 7:  # no extra carrier exists, insert a blank
+        data[i][0] = itin_info[0].split('–')[0].strip()
+        data[i][1] = itin_info[0].split('–')[1].strip()
+        if re.compile('[0-9]+h [0-9]+m').match(itin_info[2]):  # no extra carrier exists, insert a blank
             itin_info.insert(2, '')
-        df.loc[i, 'depart time'] = itin_info[0].split('–')[0].strip()
-        df.loc[i, 'arrival time'] = itin_info[0].split('–')[1].strip()
-        df.loc[i, 'carrier'] = itin_info[1]
-        df.loc[i, 'extra carrier'] = itin_info[2]
-        df.loc[i, 'duration'] = itin_info[3]
-        df.loc[i, 'airports (from-to)'] = itin_info[4]
-        df.loc[i, 'stops'] = itin_info[5]
-        df.loc[i, 'layover'] = itin_info[6]
-        df.loc[i, 'price'] = itin_info[7]
+        for j, itin_item in enumerate(itin_info[1:]):
+            data[i][j+2] = itin_item
+    # create a data frame
+    columns = ['depart time', 'arrival time', 'carrier', 'extra carrier', 'duration', 'airports (from-to)', 'stops', 'layover', 'price', 'round trip']
+    df = pd.DataFrame(data, columns=columns)
+    # save the data frame
     save_filename_ext = os.path.splitext(save_filename)[1][1:]
     if save_filename_ext in ['xls', 'xlsx']:
-        df.to_excel(save_filename)
+        df.to_excel(save_filename, index=False)
     elif save_filename_ext == 'csv':
-        df.to_csv(save_filename)
+        df.to_csv(save_filename, index=False)
     else:
         raise NotImplementedError
 
 
 
 if __name__ == '__main__':
+    # parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('airports', metavar='airports', type=str.upper, nargs=2, help='depart and arrival airports')
+    parser.add_argument('dates', metavar='dates', type=str, nargs='+', help='depart and return dates')
+    parser.add_argument('-l', '--checklist', type=str.lower, help="where the job will run")
+    args = parser.parse_args()
+    depart_airport, arrival_airport = args.airports
+    is_roundtrip = True if len(args.dates) > 1 else False
+    depart_date = args.dates[0]
+    return_date = args.dates[1] if len(args.dates) > 1 else None
+
     # use ChromeDriver
     driver = os.path.normpath('./chromedriver.exe')
     browser = webdriver.Chrome(executable_path=driver)
@@ -120,23 +133,23 @@ if __name__ == '__main__':
     browser.get(link)
 
     # search flights with the given inputs
-    is_roundtrip = False
     if not is_roundtrip:
         ticket_chooser('One way')
-    depart_airport_chooser('NYC')
-    arrival_airport_chooser('SHA')
-    if is_roundtrip:
-        depart_date = '2020-10-01'
-        return_date = '2020-12-01'
-        date_chooser(depart_date=depart_date, return_date=return_date)
-    else:
-        depart_date = '2020-10-01'
-        date_chooser(depart_date=depart_date)
+    depart_airport_chooser(depart_airport)
+    arrival_airport_chooser(arrival_airport)
+    date_chooser(depart_date=depart_date, return_date=return_date)
     search()
 
     # compile and save results
-    save_filename = os.path.normpath('./result.xls')
+    save_filename = './result_{:s}-{:s}_{:s}'.format(depart_airport, arrival_airport, depart_date)
+    if is_roundtrip:
+        save_filename += '-{:s}'.format(return_date)
+    save_filename += '_created_on_{:d}-{:d}-{:d}_{:d}h{:d}m{:d}s'.format(datetime.now().year, datetime.now().month, datetime.now().day,
+                                                                         datetime.now().hour, datetime.now().minute, datetime.now().second)
+    save_filename += '.xls'
+    save_filename = os.path.normpath(save_filename)
     compile(save_filename)
+    print('Google Flight search results are saved as {:s}'.format(save_filename))
 
     # quit the browser
     browser.quit()
