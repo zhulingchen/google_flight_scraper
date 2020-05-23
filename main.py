@@ -119,9 +119,9 @@ def compile(save_filename=None):
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--airports', metavar='airports', type=str.upper, nargs=2, help='depart and arrival airports')
-    parser.add_argument('-d', '--dates', metavar='dates', type=str, nargs='+', help='depart and return dates')
-    parser.add_argument('-l', '--checklist', metavar='checklist', type=str.lower, help="checklist file including many airports and dates")
+    parser.add_argument('-a', '--airports', metavar='AIRPORT', type=str.upper, nargs=2, help='depart and arrival airports')
+    parser.add_argument('-d', '--dates', metavar='YYYY-MM-DD', type=str, nargs='+', help='depart and return dates (one date for one way or two dates for round-trip)')
+    parser.add_argument('-l', '--checklist', metavar='FILE', type=str.lower, help='checklist file (a .csv or Excel file) including many airports and dates')
     args = parser.parse_args()
     colnames = ['depart_airport', 'arrival_airport', 'depart_date', 'return_date']
     dialog = namedtuple("Dialog", field_names=colnames)

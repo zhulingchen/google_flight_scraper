@@ -13,11 +13,11 @@ You must download either [ChromeDriver](https://chromedriver.chromium.org/downlo
 ## Usage
 main.py [-h] [-a airports airports] [-d dates [dates ...]] [-l checklist]
 
-| Arguments     									  | Description                                      |
-| :---          									  | :---                                             |
-| -h, --help                                          | show this help message and exit 				 |
-| -a airports airports, --airports airports airports  | depart and arrival airports 					 |
-| -d dates [dates ...], --dates dates [dates ...]     | depart and return dates 						 |
-| -l checklist, --checklist checklist                 | checklist file including many airports and dates |
+| Arguments     									                      | Description                                                                |
+| :---          									                      | :---                                                                       |
+| -h, --help                                                              | show this help message and exit 				                           |
+| -a AIRPORT AIRPORT, --airports AIRPORT AIRPORT                          | depart and arrival airports 					                           |
+| -d YYYY-MM-DD [YYYY-MM-DD ...], --dates YYYY-MM-DD [YYYY-MM-DD ...]     | depart and return dates (one date for one way or two dates for round-trip) |
+| -l FILE, --checklist FILE                                               | checklist file (a .csv or Excel file) including many airports and dates    |
 
 Note: if -l/--checklist is used, -a/--airports and -d/--dates will be overridden.
