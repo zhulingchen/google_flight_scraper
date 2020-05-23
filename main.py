@@ -1,6 +1,8 @@
 """
 Google Flight Scraper
 
+My own scraper for Google Flights search and result compilation written in Python. It is designed for my personal and convenient use only, not for any commercial purposes.
+
 Author: Lingchen Zhu
 """
 
@@ -8,11 +10,13 @@ import os
 import re
 import argparse
 import time
+import numpy as np
+import pandas as pd
+from collections import namedtuple
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import pandas as pd
 import smtplib
 from email.mime.multipart import MIMEMultipart
 
@@ -80,7 +84,7 @@ def date_chooser(depart_date, return_date=None):
     time.sleep(5)
 
 
-def search():
+def search_more():
     more_results = browser.find_element_by_xpath("//a[@class='gws-flights-results__dominated-link']")
     more_results.click()
     time.sleep(15)
@@ -99,8 +103,8 @@ def compile(save_filename=None):
         for j, itin_item in enumerate(itin_info[1:]):
             data[i][j+2] = itin_item
     # create a data frame
-    columns = ['depart time', 'arrival time', 'carrier', 'extra carrier', 'duration', 'airports (from-to)', 'stops', 'layover', 'price', 'round trip']
-    df = pd.DataFrame(data, columns=columns)
+    colnames = ['depart time', 'arrival time', 'carrier', 'extra carrier', 'duration', 'airports (from-to)', 'stops', 'layover', 'price', 'round trip']
+    df = pd.DataFrame(data, columns=colnames)
     # save the data frame
     save_filename_ext = os.path.splitext(save_filename)[1][1:]
     if save_filename_ext in ['xls', 'xlsx']:
@@ -115,41 +119,71 @@ def compile(save_filename=None):
 if __name__ == '__main__':
     # parse arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('airports', metavar='airports', type=str.upper, nargs=2, help='depart and arrival airports')
-    parser.add_argument('dates', metavar='dates', type=str, nargs='+', help='depart and return dates')
-    parser.add_argument('-l', '--checklist', type=str.lower, help="where the job will run")
+    parser.add_argument('-a', '--airports', metavar='airports', type=str.upper, nargs=2, help='depart and arrival airports')
+    parser.add_argument('-d', '--dates', metavar='dates', type=str, nargs='+', help='depart and return dates')
+    parser.add_argument('-l', '--checklist', metavar='checklist', type=str.lower, help="checklist file including many airports and dates")
     args = parser.parse_args()
-    depart_airport, arrival_airport = args.airports
-    is_roundtrip = True if len(args.dates) > 1 else False
-    depart_date = args.dates[0]
-    return_date = args.dates[1] if len(args.dates) > 1 else None
+    colnames = ['depart_airport', 'arrival_airport', 'depart_date', 'return_date']
+    dialog = namedtuple("Dialog", field_names=colnames)
+
+    if args.checklist:
+        checklist_filename = os.path.normpath(args.checklist)
+        checklist_filename_ext = os.path.splitext(checklist_filename)[1][1:]
+        if checklist_filename_ext == 'csv':
+            checklist = pd.read_csv(checklist_filename, names=colnames, header=None)
+            checklist['return_date'] = [None if pd.isnull(d) else d for d in checklist['return_date']]
+        elif checklist_filename_ext in ['xls', 'xlsx']:
+            checklist = pd.read_excel(checklist_filename, names=colnames, header=None)
+            checklist['depart_date'] = [str(d.date()) for d in checklist['depart_date']]
+            checklist['return_date'] = [None if pd.isnull(d) else str(d.date()) for d in checklist['return_date']]
+        else:
+            raise NotImplementedError
+        checklist = checklist.values
+        inputlist = []
+        for item in checklist:
+            inputlist.append(dialog(**{k: v for k, v in zip(colnames, item)}))
+    elif args.airports:
+        if args.dates:
+            inputlist = [dialog(args.airports[0], args.airports[1], args.dates[0], args.dates[1] if len(args.dates) > 1 else None)]
+        else:  # use today's date if no -d/--dates arguments is given
+            inputlist = [dialog(args.airports[0], args.airports[1], str(datetime.now().date()), None)]
+    else:
+        raise ValueError('Either explicit airports and date(s) or a checklist of airports and date(s) must be given.')
 
     # use ChromeDriver
     driver = os.path.normpath('./chromedriver.exe')
     browser = webdriver.Chrome(executable_path=driver)
 
-    # jump to the google flight website
-    link = 'https://www.google.com/flights'
-    browser.get(link)
+    # search and compile results
+    for item in inputlist:
+        # jump to the google flight website
+        link = 'https://www.google.com/flights'
+        browser.get(link)
 
-    # search flights with the given inputs
-    if not is_roundtrip:
-        ticket_chooser('One way')
-    depart_airport_chooser(depart_airport)
-    arrival_airport_chooser(arrival_airport)
-    date_chooser(depart_date=depart_date, return_date=return_date)
-    search()
+        # print search dialog information
+        info = 'Searching and compiling flights from {:s} to {:s}, leaving on {:s}'.format(item.depart_airport, item.arrival_airport, item.depart_date)
+        if item.return_date:
+            info += ', returning on {:s}'.format(item.return_date)
+        print(info)
 
-    # compile and save results
-    save_filename = './result_{:s}-{:s}_{:s}'.format(depart_airport, arrival_airport, depart_date)
-    if is_roundtrip:
-        save_filename += '-{:s}'.format(return_date)
-    save_filename += '_created_on_{:d}-{:d}-{:d}_{:d}h{:d}m{:d}s'.format(datetime.now().year, datetime.now().month, datetime.now().day,
-                                                                         datetime.now().hour, datetime.now().minute, datetime.now().second)
-    save_filename += '.xls'
-    save_filename = os.path.normpath(save_filename)
-    compile(save_filename)
-    print('Google Flight search results are saved as {:s}'.format(save_filename))
+        # search flights with the given inputs
+        if not item.return_date:
+            ticket_chooser('One way')
+        depart_airport_chooser(item.depart_airport)
+        arrival_airport_chooser(item.arrival_airport)
+        date_chooser(depart_date=item.depart_date, return_date=item.return_date)
+        search_more()
+
+        # compile and save results
+        save_filename = './result_{:s}-{:s}_{:s}'.format(item.depart_airport, item.arrival_airport, item.depart_date)
+        if item.return_date:
+            save_filename += '-{:s}'.format(item.return_date)
+        save_filename += '_created_on_{:d}-{:d}-{:d}_{:d}h{:d}m{:d}s'.format(datetime.now().year, datetime.now().month, datetime.now().day,
+                                                                             datetime.now().hour, datetime.now().minute, datetime.now().second)
+        save_filename += '.xls'
+        save_filename = os.path.normpath(save_filename)
+        compile(save_filename)
+        print('Google Flight search results are saved as {:s}'.format(save_filename))
 
     # quit the browser
     browser.quit()
