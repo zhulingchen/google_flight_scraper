@@ -3,7 +3,18 @@ Google Flight Scraper
 
 My own scraper for Google Flights search and result compilation written in Python. It is designed for my personal and convenient use only, not for any commercial purposes.
 
-Author: Lingchen Zhu
+Author: Lingchen Zhu (zhulingchen@gmail.com)
+Copyright 2020
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software with the rights of use, copy, modify, and distribute, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+1. no commercial use
+
+2. must keep the author's name (Lingchen Zhu) in the copyright notice
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 
 import os
@@ -23,14 +34,11 @@ from email.mime.multipart import MIMEMultipart
 
 
 def ticket_chooser(type):
-    try:
-        ticket_type_menu = browser.find_element_by_xpath("//span[@class='gws-flights-form__menu-button-icon']")
-        ticket_type_menu.click()
-        ticket_type = browser.find_element_by_xpath("//span[text()='{:s}']".format(type))
-        ticket_type.click()
-        time.sleep(1)
-    except Exception as e:
-        pass
+    ticket_type_menu = browser.find_element_by_xpath("//span[@class='gws-flights-form__menu-button-icon']")
+    ticket_type_menu.click()
+    ticket_type = browser.find_element_by_xpath("//span[text()='{:s}']".format(type))
+    ticket_type.click()
+    time.sleep(1)
 
 
 def depart_airport_chooser(depart_airport_name):
@@ -85,16 +93,12 @@ def date_chooser(depart_date, return_date=None):
 
 
 def search_more():
-    try:
-        more_results = browser.find_element_by_xpath("//a[@class='gws-flights-results__dominated-link']")
-        more_results.click()
-        time.sleep(15)
-        return True
-    except Exception as e:
-        return False
+    more_results = browser.find_element_by_xpath("//a[@class='gws-flights-results__dominated-link']")
+    more_results.click()
+    time.sleep(15)
 
 
-def compile(save_filename=None):
+def compile():
     itinerary = browser.find_elements_by_xpath("//div[contains(@class, 'gws-flights-results__itinerary-card-summary')]")
     # collect itinerary data
     data = [[None] * 10 for _ in range(len(itinerary))]
@@ -106,21 +110,21 @@ def compile(save_filename=None):
             itin_info.insert(2, '')
         for j, itin_item in enumerate(itin_info[1:]):
             data[i][j+2] = itin_item
-    # create a data frame
+    # create a data frame and return
     colnames = ['depart time', 'arrival time', 'carrier', 'extra carrier', 'duration', 'airports (from-to)', 'stops', 'layover', 'price', 'round trip']
-    df = pd.DataFrame(data, columns=colnames)
-    # save the data frame
-    save_filename_ext = os.path.splitext(save_filename)[1][1:]
-    if save_filename_ext in ['xls', 'xlsx']:
-        df.to_excel(save_filename, index=False)
-    elif save_filename_ext == 'csv':
-        df.to_csv(save_filename, index=False)
-    else:
-        raise NotImplementedError
+    return pd.DataFrame(data, columns=colnames)
 
 
 
 if __name__ == '__main__':
+    # print copyright
+    print('====================================================================================================')
+    print("Welcome to use the scraper for Google Flights search and result compilation.\n")
+    print("Author: Lingchen Zhu (zhulingchen@gmail.com)")
+    print("Copyright 2020\n")
+    print('THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.')
+    print('====================================================================================================')
+
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--airports', metavar='AIRPORT', type=str.upper, nargs=2, help='depart and arrival airports')
@@ -160,28 +164,30 @@ if __name__ == '__main__':
 
     # search and compile results
     for item in inputlist:
-        # jump to the google flight website
-        link = 'https://www.google.com/flights'
-        browser.get(link)
-
         # print search dialog information
         info = 'Searching and compiling flights from {:s} to {:s}, leaving on {:s}'.format(item.depart_airport, item.arrival_airport, item.depart_date)
         if item.return_date:
             info += ', returning on {:s}'.format(item.return_date)
         print(info)
 
-        # search flights with the given inputs
-        if not item.return_date:
-            ticket_chooser('One way')
-        depart_airport_chooser(item.depart_airport)
-        arrival_airport_chooser(item.arrival_airport)
-        date_chooser(depart_date=item.depart_date, return_date=item.return_date)
-        is_success = search_more()
-        if not is_success:
-            print('Searching failed')
+        try:
+            # jump to the google flight website
+            link = 'https://www.google.com/flights'
+            browser.get(link)
+
+            # search flights with the given inputs
+            if not item.return_date:
+                ticket_chooser('One way')
+            depart_airport_chooser(item.depart_airport)
+            arrival_airport_chooser(item.arrival_airport)
+            date_chooser(depart_date=item.depart_date, return_date=item.return_date)
+            search_more()  # click "XXX more flights"
+            df = compile()  # compile results as a pandas DataFrame
+        except Exception as e:
+            print('Search failed')
             continue
 
-        # compile and save results
+        # prepare the save filename
         save_filename = './result_{:s}-{:s}_{:s}'.format(item.depart_airport, item.arrival_airport, item.depart_date)
         if item.return_date:
             save_filename += '-{:s}'.format(item.return_date)
@@ -189,7 +195,16 @@ if __name__ == '__main__':
                                                                              datetime.now().hour, datetime.now().minute, datetime.now().second)
         save_filename += '.xls'
         save_filename = os.path.normpath(save_filename)
-        compile(save_filename)
+
+        # save the pandas DataFrame as an Excel file
+        save_filename_ext = os.path.splitext(save_filename)[1][1:]
+        if save_filename_ext in ['xls', 'xlsx']:
+            df.to_excel(save_filename, index=False)
+        elif save_filename_ext == 'csv':
+            df.to_csv(save_filename, index=False)
+        else:
+            raise NotImplementedError
+
         print('Google Flight search results are saved as {:s}'.format(save_filename))
 
     # quit the browser
