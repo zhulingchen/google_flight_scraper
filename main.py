@@ -40,6 +40,7 @@ from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 import smtplib
 from email.mime.multipart import MIMEMultipart
 
@@ -59,6 +60,7 @@ def depart_airport_chooser(depart_airport_name):
     time.sleep(1)
     depart_airport = browser.find_element_by_xpath("//input[@placeholder='Where from?']")
     depart_airport.clear()
+    time.sleep(1)
     depart_airport.send_keys(depart_airport_name)
     time.sleep(1)
     first_item = browser.find_element_by_xpath("//span[@class='fsapp-option-city-name']")
@@ -110,10 +112,13 @@ def search_more():
     time.sleep(15)
 
 
-def compile():
-    itinerary = browser.find_elements_by_xpath("//div[contains(@class, 'gws-flights-results__itinerary-card-summary')]")
+def compile(flight_number=False):
+    itinerary = browser.find_elements_by_xpath("//li[contains(@class, 'gws-flights-results__result-item')]")
     # collect itinerary data
-    data = [[None] * 10 for _ in range(len(itinerary))]
+    colnames = ['depart time', 'arrival time', 'carrier', 'extra carrier', 'duration', 'airports (from-to)', 'stops', 'layover', 'price', 'round trip']
+    if flight_number:
+        colnames += ['flight number']
+    data = [[None] * len(colnames) for _ in range(len(itinerary))]
     for i, itin in enumerate(itinerary):
         itin_info = itin.text.split('\n')
         data[i][0] = itin_info[0].split('–')[0].strip()
@@ -122,8 +127,25 @@ def compile():
             itin_info.insert(2, '')
         for j, itin_item in enumerate(itin_info[1:]):
             data[i][j+2] = itin_item
+        if flight_number:
+            # expand details
+            # browser.execute_script("arguments[0].scrollIntoView(false);", itin)
+            # actions.move_to_element(itin).perform()  # move to the element otherwise click() will throw Exception: element click intercepted
+            expand = itin.find_element_by_xpath(".//div[@aria-label='Show details']")
+            actions.move_to_element(expand).perform()  # move to the element otherwise click() will throw Exception: element click intercepted
+            expand.click()
+            time.sleep(1)
+            itin_detail = itin.find_element_by_xpath(".//div[@class='gws-flights-widgets-expandablecard__body']")
+            flight_number_info = itin_detail.find_elements_by_xpath(".//div[@class='gws-flights-results__other-leg-info gws-flights__flex-box gws-flights__align-center']")
+            flight_number_info = ','.join(n.text.split('\n')[-1] for n in flight_number_info)
+            data[i][-1] = flight_number_info
+            # hide details
+            # browser.execute_script("arguments[0].scrollIntoView(false);", itin)
+            # actions.move_to_element(itin).perform()  # move to the element otherwise click() will throw Exception: element click intercepted
+            hide = itin.find_element_by_xpath(".//div[@aria-label='Hide details']")
+            actions.move_to_element(hide).perform()  # move to the element otherwise click() will throw Exception: element click intercepted
+            hide.click()
     # create a data frame and return
-    colnames = ['depart time', 'arrival time', 'carrier', 'extra carrier', 'duration', 'airports (from-to)', 'stops', 'layover', 'price', 'round trip']
     return pd.DataFrame(data, columns=colnames)
 
 
@@ -142,6 +164,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--airports', metavar='AIRPORT', type=str.upper, nargs=2, help='depart and arrival airports')
     parser.add_argument('-d', '--dates', metavar='YYYY-MM-DD', type=str, nargs='+', help='depart and return dates (one date for one way or two dates for round-trip)')
     parser.add_argument('-l', '--checklist', metavar='FILE', type=str.lower, help='checklist file (a .csv or Excel file) including many airports and dates')
+    parser.add_argument('-n', '--flight-number', action='store_true', help="get the flight number")
     args = parser.parse_args()
     colnames = ['depart_airport', 'arrival_airport', 'depart_date', 'return_date']
     dialog = namedtuple("Dialog", field_names=colnames)
@@ -173,6 +196,7 @@ if __name__ == '__main__':
     # use ChromeDriver
     driver = os.path.normpath('./chromedriver.exe')
     browser = webdriver.Chrome(executable_path=driver)
+    actions = ActionChains(browser)
 
     # search and compile results
     for item in inputlist:
@@ -194,7 +218,7 @@ if __name__ == '__main__':
             arrival_airport_chooser(item.arrival_airport)
             date_chooser(depart_date=item.depart_date, return_date=item.return_date)
             search_more()  # click "XXX more flights"
-            df = compile()  # compile results as a pandas DataFrame
+            df = compile(flight_number=args.flight_number)  # compile results as a pandas DataFrame
         except Exception as e:
             print('Search failed')
             continue
