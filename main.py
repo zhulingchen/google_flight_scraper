@@ -216,11 +216,11 @@ if __name__ == '__main__':
             info += ', returning on {:s}'.format(item.return_date)
         print(info)
 
-        try:
-            # initialize browser
-            browser = webdriver.Chrome(executable_path=driver)
-            actions = ActionChains(browser)
+        # initialize browser
+        browser = webdriver.Chrome(executable_path=driver)
+        actions = ActionChains(browser)
 
+        try:
             # jump to the google flight website
             link = 'https://www.google.com/flights'
             browser.get(link)
@@ -301,5 +301,5 @@ if __name__ == '__main__':
         browser.stop_client()
         browser.close()
 
-    # quit the browser
-    browser.quit()
+        # quit the browser
+        browser.quit()
