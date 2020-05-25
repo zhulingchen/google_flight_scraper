@@ -173,10 +173,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--airports', metavar='AIRPORT', type=str.upper, nargs=2, help='depart and arrival airports')
     parser.add_argument('-d', '--dates', metavar='YYYY-MM-DD', type=str, nargs='+', help='depart and return dates (one date for one way or two dates for round-trip)')
-    parser.add_argument('-l', '--checklist', metavar='FILE', type=str.lower, help='checklist file (a .csv or an Excel file) including many airports and dates')
+    parser.add_argument('-l', '--checklist', metavar='FILE', type=str, help='checklist file (a .csv or an Excel file) including many airports and dates')
     parser.add_argument('-n', '--flight-number', action='store_true', help="get the flight number")
     parser.add_argument('-c', '--carriers', metavar='CARRIER', type=str.lower, nargs='*', help="filter specific carriers")
-    parser.add_argument('-e', '--email', metavar='EMAIL', nargs='*', help="email address(es) that receive results")
+    parser.add_argument('-e', '--email', metavar='EMAIL', type=str, nargs='*', help="email address(es) that receive results")
     args = parser.parse_args()
     colnames = ['depart_airport', 'arrival_airport', 'depart_date', 'return_date']
     dialog = namedtuple("Dialog", field_names=colnames)
