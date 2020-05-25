@@ -207,8 +207,6 @@ if __name__ == '__main__':
 
     # use ChromeDriver
     driver = os.path.normpath('./chromedriver.exe' if os.name.lower() == 'nt' else './chromedriver')
-    browser = webdriver.Chrome(executable_path=driver)
-    actions = ActionChains(browser)
 
     # search and compile results
     for item in inputlist:
@@ -219,6 +217,10 @@ if __name__ == '__main__':
         print(info)
 
         try:
+            # initialize browser
+            browser = webdriver.Chrome(executable_path=driver)
+            actions = ActionChains(browser)
+
             # jump to the google flight website
             link = 'https://www.google.com/flights'
             browser.get(link)
@@ -283,7 +285,7 @@ if __name__ == '__main__':
                     {:s}
                   </body>
                 </html>\
-                """.format(df.to_html())
+                """.format(df.to_html(index=False))
                 email_message.attach(MIMEText(email_message_body, 'html'))
                 # attach the saved Excel file
                 email_attachment = MIMEBase('application', "octet-stream")
@@ -294,6 +296,10 @@ if __name__ == '__main__':
                 # send email
                 server.sendmail(email_message['From'], args.email, email_message.as_string())
                 print('Google Flight search results are sent to {:s}'.format(','.join(args.email)))
+
+        # close the current window
+        browser.stop_client()
+        browser.close()
 
     # quit the browser
     browser.quit()
