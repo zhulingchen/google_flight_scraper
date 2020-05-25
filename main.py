@@ -208,6 +208,9 @@ if __name__ == '__main__':
     # use ChromeDriver
     driver = os.path.normpath('./chromedriver.exe' if os.name.lower() == 'nt' else './chromedriver')
 
+    info_list = []
+    df_list = []
+    save_filename_list = []
     # search and compile results
     for item in inputlist:
         # print search dialog information
@@ -237,15 +240,23 @@ if __name__ == '__main__':
             print('Search failed')
             print(e)
             continue
+        info_list.append(info)
+        df_list.append(df)
+        print('Google Flight search results are compiled')
 
         # prepare the save filename
         save_filename = './result_{:s}-{:s}_{:s}'.format(item.depart_airport, item.arrival_airport, item.depart_date)
         if item.return_date:
             save_filename += '-{:s}'.format(item.return_date)
-        save_filename += '_created_on_{:d}-{:d}-{:d}_{:d}h{:d}m{:d}s'.format(datetime.now().year, datetime.now().month, datetime.now().day,
-                                                                             datetime.now().hour, datetime.now().minute, datetime.now().second)
-        save_filename += '.xls'
+        save_filename += '_created_on_{:d}-{:d}-{:d}_{:d}h{:d}m{:d}s'.format(datetime.now().year,
+                                                                             datetime.now().month,
+                                                                             datetime.now().day,
+                                                                             datetime.now().hour,
+                                                                             datetime.now().minute,
+                                                                             datetime.now().second)
+        save_filename += '.xls'  # an Excel file
         save_filename = os.path.normpath(save_filename)
+        save_filename_list.append(save_filename)
 
         # save the pandas DataFrame as an Excel file
         save_filename_ext = os.path.splitext(save_filename)[1][1:]
@@ -260,42 +271,7 @@ if __name__ == '__main__':
             print('Result saving failed')
             print(e)
             continue
-
-        print('Google Flight search results are saved as {:s}'.format(save_filename))
-
-        # send results by email
-        if args.email:
-            email_config_filename = os.path.normpath('./email_config.json')
-            with open(email_config_filename) as email_config_file:
-                email_config = json.load(email_config_file)
-            context = ssl.create_default_context()
-            with smtplib.SMTP_SSL(email_config['server'], int(email_config['port']), context=context) as server:
-                server.login(email_config['username'], email_config['password'])
-                # assemble email message
-                email_message = MIMEMultipart()
-                email_subject = info
-                email_subject = email_subject.replace('Searching', 'Searched')
-                email_subject = email_subject.replace('compiling', 'compiled')
-                email_message['Subject'] = email_subject
-                email_message['From'] = email_config['username']
-                email_message_body = """\
-                <html>
-                  <head></head>
-                  <body>
-                    {:s}
-                  </body>
-                </html>\
-                """.format(df.to_html(index=False))
-                email_message.attach(MIMEText(email_message_body, 'html'))
-                # attach the saved Excel file
-                email_attachment = MIMEBase('application', "octet-stream")
-                email_attachment.set_payload(open(save_filename, 'rb').read())
-                encoders.encode_base64(email_attachment)
-                email_attachment.add_header('Content-Disposition', 'email_attachment; filename={:s}'.format(save_filename))
-                email_message.attach(email_attachment)
-                # send email
-                server.sendmail(email_message['From'], args.email, email_message.as_string())
-                print('Google Flight search results are sent to {:s}'.format(','.join(args.email)))
+        print('Google Flight search results are saved as {:s}\n'.format(save_filename))
 
         # close the current window
         browser.stop_client()
@@ -303,3 +279,37 @@ if __name__ == '__main__':
 
         # quit the browser
         browser.quit()
+
+    # send results by email
+    if args.email:
+        email_config_filename = os.path.normpath('./email_config.json')
+        with open(email_config_filename) as email_config_file:
+            email_config = json.load(email_config_file)
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(email_config['server'], int(email_config['port']), context=context) as server:
+            server.login(email_config['username'], email_config['password'])
+            # assemble email message
+            email_message = MIMEMultipart()
+            email_subject = 'Searched and compiled flights'
+            email_message['Subject'] = email_subject
+            email_message['From'] = email_config['username']
+            email_message_body = "<html><head></head><body>"
+            for info, df in zip(info_list, df_list):
+                info = info.replace('Searching', 'Searched')
+                info = info.replace('compiling', 'compiled')
+                email_message_body += "<br><strong>{:s}</strong><br>".format(info)
+                email_message_body += df.to_html(index=False)
+                email_message_body += "<br>"
+            email_message_body += "</body></html>"
+            email_message.attach(MIMEText(email_message_body, 'html'))
+            # attach the saved Excel file
+            for save_filename in save_filename_list:
+                email_attachment = MIMEBase('application', "octet-stream")
+                email_attachment.set_payload(open(save_filename, 'rb').read())
+                encoders.encode_base64(email_attachment)
+                email_attachment.add_header('Content-Disposition',
+                                            'email_attachment; filename={:s}'.format(save_filename))
+                email_message.attach(email_attachment)
+            # send email
+            server.sendmail(email_message['From'], args.email, email_message.as_string())
+            print('Google Flight search results are sent to {:s}'.format(','.join(args.email)))
