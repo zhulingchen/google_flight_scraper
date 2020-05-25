@@ -1,0 +1,6 @@
+{
+  "server": "smtp.use_your_domain_name.com",
+  "port": 465,
+  "username": "use_your_username",
+  "password": "use_your_password"
+}

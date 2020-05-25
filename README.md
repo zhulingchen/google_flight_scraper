@@ -6,7 +6,6 @@ Lingchen Zhu's own scraper for Google Flights search and result compilation writ
 You must download either [ChromeDriver](https://chromedriver.chromium.org/downloads) or [GeckoDriver](https://github.com/mozilla/geckodriver/releases/) (for Firefox) before using such application.
 
 ### Python packages
-- [numpy](https://www.numpy.org)
 - [pandas](https://pandas.pydata.org/)
 - [selenium](https://selenium-python.readthedocs.io/)
 
@@ -21,5 +20,6 @@ main.py [-h] [-a airports airports] [-d dates [dates ...]] [-l checklist]
 | -l FILE, --checklist FILE                                           | checklist file (a .csv or an Excel file) including many airports and dates |
 | -n, --flight-number                                                 | get the flight number                                                      |
 | -c [CARRIER [CARRIER ...]], --carriers [CARRIER [CARRIER ...]]      | filter specific carriers                                                   |
+| -e [EMAIL [EMAIL ...]], --email [EMAIL [EMAIL ...]]                 | email address(es) that receive results                                     |
 
 Note: if -l/--checklist is used, -a/--airports and -d/--dates will be overridden.
