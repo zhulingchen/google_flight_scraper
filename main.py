@@ -206,7 +206,7 @@ if __name__ == '__main__':
         raise ValueError('Either explicit airports and date(s) or a checklist of airports and date(s) must be given.')
 
     # use ChromeDriver
-    driver = os.path.normpath('./chromedriver.exe')
+    driver = os.path.normpath('./chromedriver.exe' if os.name.lower() == 'nt' else './chromedriver')
     browser = webdriver.Chrome(executable_path=driver)
     actions = ActionChains(browser)
 
